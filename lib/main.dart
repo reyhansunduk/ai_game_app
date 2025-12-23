@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/home_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // .env dosyasını yükle
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    print('UYARI: .env dosyası yüklenemedi: $e');
+    print('Lütfen .env.example dosyasını .env olarak kopyalayıp API keyinizi ekleyin');
+  }
+
   runApp(const MyApp());
 }
 

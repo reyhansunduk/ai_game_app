@@ -1,12 +1,27 @@
 import 'package:flutter/material.dart';
+// import 'package:flutter_animate/flutter_animate.dart'; // flutter pub get çalıştırın
 import 'game_screen.dart';
+import '../services/save_service.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final SaveService _saveService = SaveService();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showLoadDialog,
+        icon: const Icon(Icons.folder_open),
+        label: const Text('Kayıtlı Oyunlar'),
+        backgroundColor: Colors.orange,
+      ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -21,7 +36,7 @@ class HomeScreen extends StatelessWidget {
         ),
         child: SafeArea(
           child: Center(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -89,6 +104,7 @@ class HomeScreen extends StatelessWidget {
                     color: Colors.purple,
                     onPressed: () => _startGame(context, 'Fantastik'),
                   ),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
@@ -105,6 +121,134 @@ class HomeScreen extends StatelessWidget {
         builder: (context) => GameScreen(genre: genre),
       ),
     );
+  }
+
+  /// Kayıt yükleme dialogu
+  Future<void> _showLoadDialog() async {
+    final saves = await _saveService.listSaves();
+
+    if (!mounted) return;
+
+    if (saves.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Henüz kaydedilmiş hikaye yok'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey.shade900,
+        title: const Text(
+          'Kayıtlı Hikayeler',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: saves.length,
+            itemBuilder: (context, index) {
+              final save = saves[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                color: Colors.grey.shade800,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(12),
+                  leading: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: Text(
+                        save.state.currentAvatar ?? '📖',
+                        style: const TextStyle(fontSize: 28),
+                      ),
+                    ),
+                  ),
+                  title: Text(
+                    save.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text(
+                        save.preview,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white.withOpacity(0.7)),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Kaydedilme: ${_formatDate(save.savedAt)}',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () async {
+                      await _saveService.deleteSave(save.id);
+                      Navigator.pop(context);
+                      _showLoadDialog();
+                    },
+                  ),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    final loadedState = await _saveService.loadSave(save.id);
+                    if (loadedState != null && mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => GameScreen(
+                            genre: loadedState.genre,
+                            loadedState: loadedState,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Kapat', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 1) return 'Az önce';
+    if (diff.inHours < 1) return '${diff.inMinutes} dakika önce';
+    if (diff.inDays < 1) return '${diff.inHours} saat önce';
+    if (diff.inDays < 7) return '${diff.inDays} gün önce';
+
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
 
